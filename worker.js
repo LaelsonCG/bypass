@@ -1,27 +1,17 @@
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-
     // Verifica se é upgrade para WebSocket
-    if (request.headers.get("Upgrade") === "websocket") {
-      // Redireciona para o backend WebSocket
-      const targetUrl = "ws://vip.clickhost.xyz:80";
-
-      // Faz o proxy diretamente
-      const response = await fetch(targetUrl, {
+    const upgrade = request.headers.get("Upgrade") || "";
+    if (upgrade.toLowerCase().includes("websocket")) {
+      // Encaminha para seu servidor WebSocket
+      return fetch("http://vip.clickhost.xyz:80", {
         method: request.method,
         headers: request.headers,
         body: request.body,
       });
-
-      // Retorna a resposta com o WebSocket
-      return new Response(response.body, {
-        status: response.status,
-        headers: response.headers,
-      });
     }
 
-    // Para requisições normais (ex: navegação)
+    // Resposta para HTTP normal (opcional)
     return new Response("WebSocket Proxy Ativo", {
       status: 200,
       headers: { "Content-Type": "text/plain" }
