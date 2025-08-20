@@ -1,42 +1,51 @@
 export default {
   async fetch(request) {
-    const upgrade = request.headers.get("Upgrade");
-    const connection = request.headers.get("Connection");
+    // Extrai os headers com fallback para string vazia
+    const upgrade = (request.headers.get("Upgrade") || "").toLowerCase();
+    const connection = (request.headers.get("Connection") || "").toLowerCase();
 
-    if (upgrade?.toLowerCase().includes("websocket") &&
-        connection?.toLowerCase().includes("upgrade")) {
+    // Verifica se é uma requisição WebSocket (flexível)
+    const isUpgrade = upgrade.includes("websocket");
+    const hasConnectionUpgrade = connection.includes("upgrade");
 
+    if (isUpgrade && hasConnectionUpgrade) {
+      // Cria o par de WebSockets
       const [client, server] = new WebSocketPair();
-      handleWebSocket(server, "ws://vip.clickhost.xyz");
 
+      // Conecta ao backend
+      connectToBackend(server, "ws://vip.clickhost.xyz");
+
+      // Retorna 101 Switching Protocols
       return new Response(null, {
         status: 101,
         webSocket: client,
       });
     }
 
+    // Resposta padrão (HTTP 200)
     return new Response("OK", { status: 200 });
-  }
+  },
 };
 
-function handleWebSocket(wsClient, targetUrl) {
-  // ✅ Aceita o WebSocket do cliente (lado do Worker)
+// Função que conecta o WebSocket do Worker ao backend
+function connectToBackend(wsClient, targetUrl) {
+  // Aceita o WebSocket no lado do Worker
   wsClient.accept();
 
-  // ❌ Não chame .accept() aqui — é uma conexão de saída
+  // Cria conexão com o backend real
   const wsServer = new WebSocket(targetUrl);
 
   // Encaminha mensagens: backend → cliente
   wsServer.addEventListener("message", (event) => {
-    wsClient.send(event.data);
+    if (event.data) wsClient.send(event.data);
   });
 
   // Encaminha mensagens: cliente → backend
   wsClient.addEventListener("message", (event) => {
-    wsServer.send(event.data);
+    if (event.data) wsServer.send(event.data);
   });
 
-  // Fecha em cascata
+  // Fechar em cascata
   wsClient.addEventListener("close", () => {
     wsServer.close();
   });
@@ -45,9 +54,9 @@ function handleWebSocket(wsClient, targetUrl) {
     wsClient.close();
   });
 
-  // Trata erro no backend
+  // Tratar erro no backend
   wsServer.addEventListener("error", (err) => {
-    console.error("Erro no backend:", err);
+    console.error("Backend error:", err);
     wsClient.close(1011, "Erro no servidor de destino");
   });
 }
