@@ -6,7 +6,6 @@ export default {
     if (upgrade?.toLowerCase().includes("websocket") &&
         connection?.toLowerCase().includes("upgrade")) {
 
-      // ✅ Agora sim, WebSocketPair funciona
       const [client, server] = new WebSocketPair();
       handleWebSocket(server, "ws://vip.clickhost.xyz");
 
@@ -20,17 +19,35 @@ export default {
   }
 };
 
-function handleWebSocket(ws, targetUrl) {
-  ws.accept();
+function handleWebSocket(wsClient, targetUrl) {
+  // ✅ Aceita o WebSocket do cliente (lado do Worker)
+  wsClient.accept();
 
-  const backConn = new WebSocket(targetUrl);
-  backConn.accept();
+  // ❌ Não chame .accept() aqui — é uma conexão de saída
+  const wsServer = new WebSocket(targetUrl);
 
-  backConn.addEventListener("message", (event) => ws.send(event.data));
-  ws.addEventListener("message", (event) => backConn.send(event.data));
+  // Encaminha mensagens: backend → cliente
+  wsServer.addEventListener("message", (event) => {
+    wsClient.send(event.data);
+  });
 
-  backConn.addEventListener("close", () => ws.close());
-  ws.addEventListener("close", () => backConn.close());
+  // Encaminha mensagens: cliente → backend
+  wsClient.addEventListener("message", (event) => {
+    wsServer.send(event.data);
+  });
 
-  backConn.addEventListener("error", () => ws.close(1011));
+  // Fecha em cascata
+  wsClient.addEventListener("close", () => {
+    wsServer.close();
+  });
+
+  wsServer.addEventListener("close", () => {
+    wsClient.close();
+  });
+
+  // Trata erro no backend
+  wsServer.addEventListener("error", (err) => {
+    console.error("Erro no backend:", err);
+    wsClient.close(1011, "Erro no servidor de destino");
+  });
 }
