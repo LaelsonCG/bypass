@@ -27,21 +27,4 @@ export default {
       headers: { "Content-Type": "text/plain" }
     });
   },
-};  });
-
-  webSocket.addEventListener("message", (event) => {
-    backConn.send(event.data);
-  });
-
-  webSocket.addEventListener("close", () => {
-    backConn.close();
-  });
-
-  backConn.addEventListener("close", () => {
-    webSocket.close();
-  });
-
-  backConn.addEventListener("error", (err) => {
-    webSocket.close(1011, "Erro no backend");
-  });
-}
+};
