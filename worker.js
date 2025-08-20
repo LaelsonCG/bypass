@@ -1,19 +1,16 @@
 export default {
   async fetch(request) {
-    // pega a URL original
-    let url = new URL(request.url);
-    url.hostname = "vip.clickhost.xyz"; // seu host real que responde 101
-
-    // só permite Upgrade websocket
+    // só aceita upgrade websocket
     if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("Esperando conexão WebSocket", { status: 400 });
+      return new Response("Somente WebSocket", { status: 400 });
     }
 
-    // repassa sem mexer no body
-    return fetch(new Request(url, request), {
-      headers: {
-        "Host": "vip.clickhost.xyz",
-      }
-    });
+    // URL real de destino (sua VPS/domínio que responde com 101)
+    let url = new URL(request.url);
+    url.protocol = "wss"; 
+    url.hostname = "tls.clickhost.xyz"; // <- seu DNS que aponta pra VPS
+
+    // repassa a conexão
+    return fetch(url.toString(), request);
   }
 }
