@@ -3,7 +3,7 @@ export default {
     // URL de destino real (seu domínio que resolve para a VPS)
     let url = new URL(request.url);
     url.hostname = "vip.clickhost.xyz";
-    url.protocol = "https"; // ou "wss" se for websocket seguro
+    url.protocol = "wss"; // ou "wss" se for websocket seguro
 
     // Clona o request original
     let newRequest = new Request(url, request);
