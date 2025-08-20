@@ -1,46 +1,36 @@
 export default {
   async fetch(request) {
-    // Verifica os headers de upgrade (ignora case)
     const upgrade = request.headers.get("Upgrade");
     const connection = request.headers.get("Connection");
 
-    if (upgrade?.toLowerCase().includes("websocket") && 
+    if (upgrade?.toLowerCase().includes("websocket") &&
         connection?.toLowerCase().includes("upgrade")) {
 
-      // Cria o par de WebSockets
+      // ✅ Agora sim, WebSocketPair funciona
       const [client, server] = new WebSocketPair();
+      handleWebSocket(server, "ws://vip.clickhost.xyz");
 
-      // Conecta o server do par ao seu backend
-      this.handleBackend(server, "ws://vip.clickhost.xyz");
-
-      // Retorna o WebSocket para o cliente (101)
       return new Response(null, {
         status: 101,
         webSocket: client,
       });
     }
 
-    // Resposta padrão
     return new Response("OK", { status: 200 });
-  },
-
-  async handleBackend(clientWs, targetUrl) {
-    // Aceita o WebSocket no lado do Worker
-    clientWs.accept();
-
-    // Conecta ao backend real
-    const serverWs = new WebSocket(targetUrl);
-    serverWs.accept();
-
-    // Bi-direcional: cliente ↔ backend
-    clientWs.addEventListener("message", (e) => serverWs.send(e.data));
-    serverWs.addEventListener("message", (e) => clientWs.send(e.data));
-
-    // Fechar em cascata
-    clientWs.addEventListener("close", () => serverWs.close());
-    serverWs.addEventListener("close", () => clientWs.close());
-
-    // Erro
-    serverWs.addEventListener("error", () => clientWs.close(1011));
-  },
+  }
 };
+
+function handleWebSocket(ws, targetUrl) {
+  ws.accept();
+
+  const backConn = new WebSocket(targetUrl);
+  backConn.accept();
+
+  backConn.addEventListener("message", (event) => ws.send(event.data));
+  ws.addEventListener("message", (event) => backConn.send(event.data));
+
+  backConn.addEventListener("close", () => ws.close());
+  ws.addEventListener("close", () => backConn.close());
+
+  backConn.addEventListener("error", () => ws.close(1011));
+}
