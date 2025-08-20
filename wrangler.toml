@@ -1,4 +1,4 @@
-name = "websocket-proxy"
+name = "ws"
 main = "worker.js"
 compatibility_date = "2025-08-19"
 
