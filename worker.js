@@ -1,63 +1,46 @@
 export default {
-  async fetch(request, env, ctx) {
-    // Verifica se é upgrade para WebSocket
-    const upgradeHeader = request.headers.get("Upgrade");
-    if (upgradeHeader && upgradeHeader.toLowerCase() === "websocket") {
+  async fetch(request) {
+    // Verifica os headers de upgrade (ignora case)
+    const upgrade = request.headers.get("Upgrade");
+    const connection = request.headers.get("Connection");
+
+    if (upgrade?.toLowerCase().includes("websocket") && 
+        connection?.toLowerCase().includes("upgrade")) {
+
       // Cria o par de WebSockets
       const [client, server] = new WebSocketPair();
 
-      // Conecta o lado do server do par ao seu backend
-      connectWebSocket(server, "ws://vip.clickhost.xyz:80");
+      // Conecta o server do par ao seu backend
+      this.handleBackend(server, "ws://vip.clickhost.xyz");
 
-      // Retorna o cliente para o navegador
+      // Retorna o WebSocket para o cliente (101)
       return new Response(null, {
         status: 101,
         webSocket: client,
       });
     }
 
-    // Resposta padrão para HTTP
-    return new Response("WebSocket Proxy Ativo", {
-      status: 200,
-      headers: { "Content-Type": "text/plain" },
-    });
+    // Resposta padrão
+    return new Response("OK", { status: 200 });
+  },
+
+  async handleBackend(clientWs, targetUrl) {
+    // Aceita o WebSocket no lado do Worker
+    clientWs.accept();
+
+    // Conecta ao backend real
+    const serverWs = new WebSocket(targetUrl);
+    serverWs.accept();
+
+    // Bi-direcional: cliente ↔ backend
+    clientWs.addEventListener("message", (e) => serverWs.send(e.data));
+    serverWs.addEventListener("message", (e) => clientWs.send(e.data));
+
+    // Fechar em cascata
+    clientWs.addEventListener("close", () => serverWs.close());
+    serverWs.addEventListener("close", () => clientWs.close());
+
+    // Erro
+    serverWs.addEventListener("error", () => clientWs.close(1011));
   },
 };
-
-// Função que conecta o WebSocket do Worker ao backend
-async function connectWebSocket(wsClient, targetUrl) {
-  // Aceita o WebSocket no lado do Worker
-  wsClient.accept();
-
-  // Conecta ao seu servidor real
-  const wsServer = new WebSocket(targetUrl);
-
-  // Quando conectar ao backend
-  wsServer.addEventListener("open", () => {
-    console.log("✅ Conectado ao backend:", targetUrl);
-  });
-
-  // Mensagem do backend → cliente
-  wsServer.addEventListener("message", (event) => {
-    wsClient.send(event.data);
-  });
-
-  // Mensagem do cliente → backend
-  wsClient.addEventListener("message", (event) => {
-    wsServer.send(event.data);
-  });
-
-  // Fechar em cascata
-  wsClient.addEventListener("close", () => {
-    wsServer.close();
-  });
-
-  wsServer.addEventListener("close", () => {
-    wsClient.close();
-  });
-
-  // Tratar erro
-  wsServer.addEventListener("error", (err) => {
-    wsClient.close(1011, "Erro no backend");
-  });
-}
