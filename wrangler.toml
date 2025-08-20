@@ -1,6 +1,6 @@
 name = "ws"
 main = "worker.js"
-compatibility_date = "2025-08-19"
+compatibility_date = "2025-08-20"
 
-[vars]
-# Opcional: se quiser usar variáveis
+# Define como Module Worker
+workers_modules = true
